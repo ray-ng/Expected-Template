@@ -11,13 +11,13 @@ class Expected : std::variant<T, E> {
     return !std::holds_alternative<E>(*this) || std::get<E>(*this) == _ok;
   }
 
-  const E &error() noexcept { return ok() ? _ok : std::get<E>(*this); }
+  const E& error() noexcept { return ok() ? _ok : std::get<E>(*this); }
 
   // crash if std::bad_variant_access
-  T &get() noexcept { return std::get<T>(*this); }
+  T& get() noexcept { return std::get<T>(*this); }
 
   // crash if std::bad_variant_access
-  const T &get() const noexcept { return std::get<T>(*this); }
+  const T& get() const noexcept { return std::get<T>(*this); }
 
  private:
   static inline const std::decay_t<E> _ok{};
@@ -27,11 +27,16 @@ template <typename E>
 class Expected<void, E> {
  public:
   Expected() noexcept = default;
-  Expected(E err) noexcept : _err(err) {}
+
+  Expected(const E& err) noexcept : _err(err) {}
+  Expected(E&& err) noexcept : _err(std::move(err)) {}
+
+  template <typename... Args>
+  Expected(Args&&... args) noexcept : _err(std::forward<Args>(args)...) {}
 
   bool ok() noexcept { return _err == _ok; }
 
-  const E &error() noexcept { return _err; }
+  const E& error() noexcept { return _err; }
 
   // should not access
   void get() noexcept {}
@@ -44,16 +49,19 @@ class Expected<void, E> {
   std::decay_t<E> _err{};
 };
 
-template <typename T, typename E,
-          std::enable_if_t<!std::is_same_v<T, void>> * = nullptr,
+template <typename T,
+          typename E,
+          std::enable_if_t<!std::is_same_v<T, void>>* = nullptr,
           typename... Args>
-Expected<T, E> UnExpected(Args &&...args) noexcept {
+Expected<T, E> UnExpected(Args&&... args) noexcept {
   return Expected<T, E>{std::in_place_index_t<1u>{},
                         std::forward<Args>(args)...};
 }
 
-template <typename T, typename E, typename... Args,
-          std::enable_if_t<std::is_same_v<T, void>> * = nullptr>
-Expected<T, E> UnExpected(Args &&...args) noexcept {
+template <typename T,
+          typename E,
+          typename... Args,
+          std::enable_if_t<std::is_same_v<T, void>>* = nullptr>
+Expected<T, E> UnExpected(Args&&... args) noexcept {
   return Expected<T, E>{std::forward<Args>(args)...};
 }
